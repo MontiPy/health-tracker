@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DayLog } from '../models/hallModel';
-import { Scale, Utensils, X, ArrowRight } from 'lucide-react';
+import { Scale, X, ArrowRight } from 'lucide-react';
 
 interface LogFormProps {
   day: number;
@@ -35,18 +35,10 @@ const LogForm: React.FC<LogFormProps> = ({
     }
   };
 
-  const handleCalories = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val) && val >= 0) {
-      setLog(prev => ({ ...prev, calories: val }));
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Belt-and-suspenders: don't submit if values are invalid
     if (isNaN(log.weightKg) || log.weightKg <= 0) return;
-    if (isNaN(log.calories)  || log.calories < 0)  return;
     onSubmit(log);
   };
 
@@ -89,27 +81,6 @@ const LogForm: React.FC<LogFormProps> = ({
           max={units === 'metric' ? 300 : 660}
           value={displayWeight}
           onChange={handleWeight}
-          className={fieldCls}
-          required
-        />
-      </div>
-
-      {/* Calories */}
-      <div className="bg-slate-50 rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Utensils size={14} className="text-teal-600" />
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-            Calorie Intake (kcal)
-          </span>
-        </div>
-        <input
-          type="number"
-          inputMode="numeric"
-          step="10"
-          min={0}
-          max={10000}
-          value={log.calories}
-          onChange={handleCalories}
           className={fieldCls}
           required
         />

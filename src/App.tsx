@@ -317,6 +317,94 @@ function GoalStep({ profile, setProfile, onBack, onNext, startDate }: {
   );
 }
 
+/* ── GoalCard — inline goal editor for the profile page ─────────────────── */
+function GoalCard({ profile, setProfile, startDate }: {
+  profile: UserProfile;
+  setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
+  startDate: Date;
+}) {
+  const unitLabel = profile.units === 'metric' ? 'kg' : 'lbs';
+  const toDisp = (kg: number) => profile.units === 'metric' ? kg : kg * 2.20462;
+  const fromDisp = (v: number) => profile.units === 'metric' ? v : v / 2.20462;
+
+  const [weightStr, setWeightStr] = useState(
+    profile.goalWeightKg ? toDisp(profile.goalWeightKg).toFixed(1) : ''
+  );
+  const [days, setDays] = useState(profile.goalDays ?? '');
+  const [saved, setSaved] = useState(false);
+
+  const weightKg = parseFloat(weightStr);
+  const daysNum  = typeof days === 'number' ? days : parseInt(days as string);
+  const canSave  = !isNaN(weightKg) && weightKg > 0 && !isNaN(daysNum) && daysNum > 0;
+
+  const targetDate = !isNaN(daysNum) && daysNum > 0
+    ? (() => { const d = new Date(startDate); d.setDate(d.getDate() + daysNum); return d.toISOString().slice(0, 10); })()
+    : null;
+
+  const handleSave = () => {
+    if (!canSave) return;
+    setProfile(prev => prev ? { ...prev, goalWeightKg: fromDisp(weightKg), goalDays: daysNum } : null);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const inputCls = 'w-full px-4 py-3 rounded-2xl border-2 border-slate-100 focus:border-teal-400 focus:outline-none font-data font-bold text-slate-900 bg-white transition-colors text-sm';
+
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+      <h3 className="font-display font-bold text-base text-slate-900 tracking-tight">Goal</h3>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
+            Target Weight ({unitLabel})
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            min={profile.units === 'metric' ? 30 : 66}
+            max={profile.units === 'metric' ? 300 : 660}
+            value={weightStr}
+            onChange={e => setWeightStr(e.target.value)}
+            className={inputCls}
+            placeholder={profile.units === 'metric' ? '75.0' : '165.0'}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
+            Days to Goal
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={3650}
+            value={days}
+            onChange={e => setDays(e.target.value)}
+            className={inputCls}
+            placeholder="90"
+          />
+        </div>
+      </div>
+
+      {targetDate && (
+        <p className="text-[10px] text-teal-600 font-semibold">
+          Target date: {targetDate.replace(/-/g, '/')}
+        </p>
+      )}
+
+      <button
+        onClick={handleSave}
+        disabled={!canSave}
+        className="w-full bg-teal-600 text-white font-display font-bold py-3 rounded-2xl shadow-lg shadow-teal-100 disabled:opacity-30 uppercase tracking-wide text-sm active:scale-[0.98] transition-all"
+      >
+        {saved ? '✓ Saved' : 'Update Goal'}
+      </button>
+    </div>
+  );
+}
+
 /* ── ResultsStep ──────────────────────────────────────────────────────────── */
 function ResultsStep({ maintenanceCurrent, goalCalories, maintenanceAtGoal, goalDays, onStart }: {
   maintenanceCurrent: number; goalCalories: number; maintenanceAtGoal: number;
@@ -817,6 +905,8 @@ function App() {
               onCancel={() => setView('dashboard')}
               submitLabel="Save Changes"
             />
+
+            <GoalCard profile={profile} setProfile={setProfile} startDate={startDate} />
 
             {/* Start Date */}
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
