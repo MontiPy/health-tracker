@@ -9,6 +9,9 @@ import type { UserProfile, DayLog, ModelResult } from './models/hallModel';
 import WeightChart from './components/WeightChart';
 import ProfileForm from './components/ProfileForm';
 import LogForm from './components/LogForm';
+import { useAuth } from './contexts/AuthContext';
+import { pushToSupabase } from './lib/sync';
+import AuthButton from './components/AuthButton';
 import {
   Home, Target, Plus, History, User,
   Activity, BarChart3, Table as TableIcon,
@@ -349,6 +352,7 @@ function ResultsStep({ maintenanceCurrent, goalCalories, maintenanceAtGoal, goal
 /*  Main App                                                                  */
 /* ══════════════════════════════════════════════════════════════════════════ */
 function App() {
+  const { user } = useAuth();
   /* ── persisted state ──────────────────────────────────────────────────── */
   const [profile, setProfile] = useState<UserProfile | null>(() => {
     const s = localStorage.getItem(STORAGE_KEY_PROFILE);
@@ -379,12 +383,24 @@ function App() {
 
   /* ── persistence side-effects ─────────────────────────────────────────── */
   useEffect(() => {
-    if (profile) localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
-  }, [profile]);
+    if (profile) {
+      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+      if (user) {
+        const sd = localStorage.getItem(STORAGE_KEY_START_DATE) ?? startDate.toISOString().slice(0, 10);
+        const eu = localStorage.getItem(STORAGE_KEY_ENERGY_UNIT) ?? 'kcal';
+        pushToSupabase(user.id, profile, logs, sd, eu).catch(console.error);
+      }
+    }
+  }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
-  }, [logs]);
+    if (user && profile) {
+      const sd = localStorage.getItem(STORAGE_KEY_START_DATE) ?? startDate.toISOString().slice(0, 10);
+      const eu = localStorage.getItem(STORAGE_KEY_ENERGY_UNIT) ?? 'kcal';
+      pushToSupabase(user.id, profile, logs, sd, eu).catch(console.error);
+    }
+  }, [logs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ENERGY_UNIT, energyUnit);
@@ -424,7 +440,11 @@ function App() {
 
   /* ── handlers ─────────────────────────────────────────────────────────── */
   const handleProfileSubmit = (p: UserProfile) => {
-    setProfile(p);
+    // When editing from the profile page, preserve goal fields that ProfileForm doesn't manage
+    const merged = (view !== 'planner' && profile)
+      ? { ...p, goalWeightKg: profile.goalWeightKg, goalDays: profile.goalDays }
+      : p;
+    setProfile(merged);
     if (!localStorage.getItem(STORAGE_KEY_START_DATE)) {
       localStorage.setItem(STORAGE_KEY_START_DATE, startDate.toISOString());
     }
@@ -471,6 +491,7 @@ function App() {
             </p>
           </div>
         )}
+        <AuthButton />
       </header>
 
       <main className="flex-1 px-4 py-5 max-w-lg mx-auto w-full space-y-4">
@@ -790,7 +811,12 @@ function App() {
                 <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Edit settings & units</p>
               </div>
             </div>
-            <ProfileForm initialProfile={profile} onSubmit={handleProfileSubmit} />
+            <ProfileForm
+              initialProfile={profile}
+              onSubmit={handleProfileSubmit}
+              onCancel={() => setView('dashboard')}
+              submitLabel="Save Changes"
+            />
 
             {/* Start Date */}
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
