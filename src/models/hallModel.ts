@@ -56,8 +56,12 @@ const GAMMA_F = 0.013; // MJ/kg/d
 const GAMMA_L = 0.092; // MJ/kg/d
 const ETA_F = 0.75; // MJ/kg
 const ETA_L = 0.96; // MJ/kg
-const BETA_TEF = 0.1; 
-const BETA_AT = 0.14; 
+const BETA_TEF = 0.1; // Hall 2011 Lancet: "βTEF = 0.1 represents the typical assumption of ~10% TEF"
+// βAT = 0.14 in Hall 2011 Lancet (calibrated from semistarvation/aggressive restriction data).
+// Post-2011 literature (CALERIE, Martins 2020, Nunes 2022 systematic review) shows that for
+// typical lifestyle caloric restriction (~25% deficit), adaptive thermogenesis is smaller —
+// βAT ≈ 0.05–0.07 fits moderate restriction studies and matches NIH BWP output.
+const BETA_AT = 0.05;
 const TAU_AT = 14; 
 const NA_CONC = 3.22; // mg/ml
 const XI_NA = 3000; // mg/L/d
@@ -84,8 +88,13 @@ export function estimateInitialECF(p: UserProfile): number {
   }
 }
 
+/**
+ * Resting Metabolic Rate using Mifflin-St Jeor.
+ * Hall 2011 Lancet appendix explicitly specifies this formula (reference 16).
+ * Returns kcal/day.
+ */
 export function calculateRMR(p: UserProfile, weightKg?: number): number {
-  const w = weightKg || p.initialWeightKg;
+  const w = weightKg ?? p.initialWeightKg;
   if (p.sex === 'male') {
     return 10 * w + 6.25 * p.heightCm - 5 * p.age + 5;
   } else {
@@ -136,16 +145,21 @@ export function simulate(profile: UserProfile, logs: DayLog[], totalDays: number
   
   for (let day = 0; day <= totalDays; day++) {
     const currentWeight = F + L + ECF + 3.7 * G;
-    const reachPhase = profile.goalDays ? Math.min(1, day / profile.goalDays) : 1;
-    const currentPal = profile.pal * (1 + (profile.activityChangeReachPct / 100) * reachPhase);
+    const inMaintainPhase = !!profile.goalDays && day >= profile.goalDays;
+    const palChangePct = inMaintainPhase
+      ? profile.activityChangeMaintainPct
+      : profile.activityChangeReachPct;
+    const currentPal = profile.pal * (1 + palChangePct / 100);
     const currentDelta = ((1 - BETA_TEF) * currentPal - 1) * RMR_init / profile.initialWeightKg;
 
     const uncertainty = (profile.uncertaintyPct || 5) / 100;
+    // Band grows proportionally with sqrt of time elapsed (random-walk energy intake model)
+    const bandScale = Math.sqrt(day / Math.max(1, totalDays));
     results.push({
       day,
       predictedWeightKg: currentWeight,
-      lowEstWeightKg: currentWeight * (1 - uncertainty * reachPhase),
-      highEstWeightKg: currentWeight * (1 + uncertainty * reachPhase),
+      lowEstWeightKg: currentWeight * (1 - uncertainty * bandScale),
+      highEstWeightKg: currentWeight * (1 + uncertainty * bandScale),
       fatMassKg: F,
       leanMassKg: L,
       bmi: currentWeight / (hMeters * hMeters),
@@ -159,7 +173,13 @@ export function simulate(profile: UserProfile, logs: DayLog[], totalDays: number
     // ODE System
     const dG_dt = (0.5 * EI - (0.5 * EI_baseline / (G_init * G_init)) * G * G) / RHO_G;
     const dECF_dt = (-XI_NA * (ECF - estimateInitialECF(profile)) - XI_CI * (1 - (0.5 * EI) / (0.5 * EI_baseline))) / NA_CONC / 1000;
-    const dAT_dt = (BETA_AT * (EI - EI_baseline) - AT) / TAU_AT;
+
+    // Phase-dependent adaptive thermogenesis (Martins et al. 2020: AT is present during
+    // negative energy balance but decays when energy balance is restored at maintenance).
+    // During reach phase: βAT = 0.05 (calibrated to moderate restriction literature).
+    // During maintain phase: βAT = 0, so AT exponentially decays to 0 with τAT = 14 days.
+    const effectiveBetaAT = inMaintainPhase ? 0 : BETA_AT;
+    const dAT_dt = (effectiveBetaAT * (EI - EI_baseline) - AT) / TAU_AT;
     
     const p = (10.4 * RHO_L / RHO_F) / ((10.4 * RHO_L / RHO_F) + F);
     const EE = (K + GAMMA_F * F + GAMMA_L * L + currentDelta * currentWeight + BETA_TEF * EI + AT + 

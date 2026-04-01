@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+:root {
+  --teal-50:  #f0fdfa;
+  --teal-100: #ccfbf1;
+  --teal-600: #0d9488;
+  --teal-700: #0f766e;
+  --cyan-400: #22d3ee;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--teal-50);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'Syne', sans-serif; }
+.font-data    { font-family: 'Space Mono', monospace; }
+
+/* Staggered fade-slide-up animations */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.anim-fade-up   { animation: fadeSlideUp 0.4s ease-out both; }
+.anim-scale-in  { animation: scaleIn    0.35s ease-out both; }
+.anim-fade-in   { animation: fadeIn     0.3s ease-out both; }
+
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.10s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.20s; }
+.delay-5 { animation-delay: 0.25s; }
+.delay-6 { animation-delay: 0.30s; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+/* Safe-area inset for bottom nav */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }

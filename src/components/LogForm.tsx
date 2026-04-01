@@ -1,81 +1,125 @@
 import { useState } from 'react';
 import type { DayLog } from '../models/hallModel';
+import { Scale, Utensils, X, ArrowRight } from 'lucide-react';
 
 interface LogFormProps {
   day: number;
   units: 'metric' | 'imperial';
   initialLog?: DayLog;
+  predictedWeight?: number;
+  date?: string;
   onSubmit: (log: DayLog) => void;
+  onCancel?: () => void;
 }
 
-const LogForm: React.FC<LogFormProps> = ({ day, units, initialLog, onSubmit }) => {
-  const [log, setLog] = useState<DayLog>(initialLog || {
-    day,
-    weightKg: 80,
-    calories: 2000,
-  });
-
-  const [displayWeight, setDisplayWeight] = useState(
-    units === 'metric' ? log.weightKg : log.weightKg * 2.20462
+const LogForm: React.FC<LogFormProps> = ({
+  day, units, initialLog, predictedWeight, date, onSubmit, onCancel,
+}) => {
+  const initLog = initialLog ?? { day, weightKg: 80, calories: 2000 };
+  const [log, setLog]               = useState<DayLog>(initLog);
+  const [displayWeight, setDisplay] = useState(
+    units === 'metric' ? initLog.weightKg : initLog.weightKg * 2.20462
   );
 
-  const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setDisplayWeight(val);
-    setLog(prev => ({
-      ...prev,
-      weightKg: units === 'metric' ? val : val / 2.20462,
-    }));
+  const unitLabel = units === 'metric' ? 'kg' : 'lbs';
+  const predDisp  = predictedWeight != null
+    ? (units === 'metric' ? predictedWeight : predictedWeight * 2.20462)
+    : null;
+
+  const handleWeight = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const val = parseFloat(raw);
+    setDisplay(isNaN(val) ? 0 : val);
+    if (!isNaN(val) && val > 0) {
+      setLog(prev => ({ ...prev, weightKg: units === 'metric' ? val : val / 2.20462 }));
+    }
   };
 
-  const handleCalorieChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCalories = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    setLog(prev => ({ ...prev, calories: val }));
+    if (!isNaN(val) && val >= 0) {
+      setLog(prev => ({ ...prev, calories: val }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Belt-and-suspenders: don't submit if values are invalid
+    if (isNaN(log.weightKg) || log.weightKg <= 0) return;
+    if (isNaN(log.calories)  || log.calories < 0)  return;
     onSubmit(log);
   };
 
-  const inputClass = "w-full p-3 rounded-xl border-2 border-gray-100 focus:border-blue-500 focus:outline-none font-bold text-lg text-center";
-  const labelClass = "block text-[10px] font-bold text-gray-400 uppercase mb-1 text-center";
+  const fieldCls = 'w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-400 focus:outline-none font-data font-bold text-2xl text-center text-slate-900 bg-white transition-colors';
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-2xl shadow-md max-w-md mx-auto">
-      <div className="text-center">
-        <h2 className="text-2xl font-black text-gray-800">Day {day}</h2>
-        <p className="text-gray-500 text-sm">Quick Log</p>
+    <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-5">
+
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-[10px] font-semibold text-teal-600 uppercase tracking-widest">{date ?? `Day ${day}`}</p>
+          <h2 className="font-display font-bold text-2xl text-slate-900 tracking-tight">Day {day}</h2>
+        </div>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="p-2 rounded-xl hover:bg-slate-50 text-slate-400 transition-colors">
+            <X size={18} />
+          </button>
+        )}
       </div>
-      
-      <div>
-        <label className={labelClass}>Weight ({units === 'metric' ? 'kg' : 'lbs'})</label>
+
+      {/* Weight */}
+      <div className="bg-slate-50 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Scale size={14} className="text-teal-600" />
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+            Weight ({unitLabel})
+          </span>
+          {predDisp != null && (
+            <span className="ml-auto text-[9px] text-slate-400">
+              Predicted: <span className="font-data font-bold text-teal-600">{predDisp.toFixed(1)}</span>
+            </span>
+          )}
+        </div>
         <input
           type="number"
+          inputMode="decimal"
           step="0.1"
+          min={units === 'metric' ? 30 : 66}
+          max={units === 'metric' ? 300 : 660}
           value={displayWeight}
-          onChange={handleWeightChange}
-          className={inputClass}
+          onChange={handleWeight}
+          className={fieldCls}
           required
         />
       </div>
 
-      <div>
-        <label className={labelClass}>Calorie Intake (kcal)</label>
+      {/* Calories */}
+      <div className="bg-slate-50 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Utensils size={14} className="text-teal-600" />
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+            Calorie Intake (kcal)
+          </span>
+        </div>
         <input
           type="number"
+          inputMode="numeric"
+          step="10"
+          min={0}
+          max={10000}
           value={log.calories}
-          onChange={handleCalorieChange}
-          className={inputClass}
+          onChange={handleCalories}
+          className={fieldCls}
           required
         />
       </div>
 
       <button
         type="submit"
-        className="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition-all uppercase tracking-widest"
+        className="w-full bg-teal-600 text-white font-display font-bold py-4 rounded-2xl shadow-lg shadow-teal-100 uppercase tracking-wide text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
       >
-        Save Log Entry
+        Save Entry <ArrowRight size={17} />
       </button>
     </form>
   );
