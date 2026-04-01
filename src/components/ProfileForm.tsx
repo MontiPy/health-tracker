@@ -6,6 +6,8 @@ import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 interface ProfileFormProps {
   initialProfile?: UserProfile;
   onSubmit: (profile: UserProfile) => void;
+  onCancel?: () => void;
+  submitLabel?: string;
 }
 
 const PAL_LEVELS = [
@@ -19,7 +21,7 @@ const PAL_LEVELS = [
 // 6'0" = 182.88 cm
 const DEFAULT_HEIGHT_CM = 182.88;
 
-const ProfileForm: React.FC<ProfileFormProps> = ({ initialProfile, onSubmit }) => {
+const ProfileForm: React.FC<ProfileFormProps> = ({ initialProfile, onSubmit, onCancel, submitLabel = 'Continue to Goal' }) => {
   const [showPal, setShowPal] = useState(false);
   const [units, setUnits] = useState<'metric' | 'imperial'>(initialProfile?.units ?? 'imperial');
 
@@ -281,12 +283,23 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ initialProfile, onSubmit }) =
         <p className="text-[9px] text-slate-400 mt-1.5 ml-1">Width of the simulation uncertainty band (±%)</p>
       </div>
 
-      <button
-        type="submit"
-        className="w-full bg-teal-600 text-white font-display font-bold py-4 rounded-2xl shadow-lg shadow-teal-100 uppercase tracking-wide text-sm active:scale-[0.98] transition-all"
-      >
-        Continue to Goal
-      </button>
+      <div className={onCancel ? 'flex gap-3' : ''}>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-4 font-semibold text-slate-400 text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="submit"
+          className={`${onCancel ? 'flex-[2]' : 'w-full'} bg-teal-600 text-white font-display font-bold py-4 rounded-2xl shadow-lg shadow-teal-100 uppercase tracking-wide text-sm active:scale-[0.98] transition-all`}
+        >
+          {submitLabel}
+        </button>
+      </div>
     </form>
   );
 };

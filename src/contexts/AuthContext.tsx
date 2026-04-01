@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { pushToSupabase, pullFromSupabase } from '../lib/sync'
@@ -16,33 +16,12 @@ interface AuthContextValue {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Initialise from existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setIsLoading(false)
-    })
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const nextUser = session?.user ?? null
-        setUser(nextUser)
-
-        if (nextUser) {
-          await handleLogin(nextUser.id)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
 
   async function handleLogin(userId: string) {
     const remote = await pullFromSupabase(userId)
@@ -76,6 +55,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  useEffect(() => {
+    // Initialise from existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      setIsLoading(false)
+    })
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
+
+        if (nextUser) {
+          await handleLogin(nextUser.id)
+        }
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -95,8 +96,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
-  return ctx
-}

@@ -9,7 +9,7 @@ import type { UserProfile, DayLog, ModelResult } from './models/hallModel';
 import WeightChart from './components/WeightChart';
 import ProfileForm from './components/ProfileForm';
 import LogForm from './components/LogForm';
-import { useAuth } from './contexts/AuthContext';
+import { useAuth } from './contexts/useAuth';
 import { pushToSupabase } from './lib/sync';
 import AuthButton from './components/AuthButton';
 import {
